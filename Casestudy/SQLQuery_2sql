@@ -1,0 +1,38 @@
+--  View for to combine death info with vac info
+Create VIEW VaccinationDataView as 
+with VaccinationData (continent, location, date, population, new_cases, new_deaths, icu_patients, hosp_patients,
+new_tests, total_tests, positive_rate, total_vaccinations, people_vaccinated, people_fully_vaccinated, new_vaccinations)
+
+as (
+    SELECT deaths.continent, deaths.location, deaths.date, deaths.population, 
+deaths.new_cases, deaths.new_deaths, deaths.icu_patients, deaths.hosp_patients, vac.new_tests, vac.total_tests,
+vac.positive_rate, vac.total_vaccinations, vac.people_vaccinated, vac.people_fully_vaccinated, vac.new_vaccinations
+FROM CovidData..CovidDeaths deaths
+JOIN CovidData..TotalVaccinations vac
+ON deaths.location=vac.location and deaths.[date]=vac.[date]
+)
+SELECT * from VaccinationData
+
+-- Total vaccinations per continent
+Select location, SUM(new_vaccinations) as TotalVaccinations
+From CovidData..TotalVaccinations
+Where continent is null 
+and location not in ('World', 'European Union', 'International')
+Group by location
+order by TotalVaccinations desc
+
+-- Total vaccinations per country
+Select location, SUM(new_vaccinations) as TotalVaccinations
+From CovidData..TotalVaccinations
+Where continent is not null 
+-- and location not in ('World', 'European Union', 'International')
+Group by location
+order by TotalVaccinations desc
+
+-- Relationship between vac and death in US
+SELECT location, date, new_cases, new_deaths, total_vaccinations, new_vaccinations, 
+SUM(new_vaccinations) OVER (Partition by location Order by location, date) as RollingPeopleVaccinated,
+people_fully_vaccinated, people_vaccinated, positive_rate, icu_patients, hosp_patients
+from VaccinationDataView
+Where continent is not null and location = 'United States'
+ORDER BY location, date
